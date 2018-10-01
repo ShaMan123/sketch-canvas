@@ -15,6 +15,8 @@ import android.util.Log;
 import android.view.View;
 
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
@@ -41,6 +43,7 @@ public class SketchCanvas extends View {
     private SketchData mCurrentPath = null;
 
     private ThemedReactContext mContext;
+    private ReactContext reactContext;
     private boolean mDisableHardwareAccelerated = false;
 
     private Paint mPaint = new Paint();
@@ -417,5 +420,81 @@ public class SketchCanvas extends View {
             }
         }
         return bitmap;
+    }
+
+
+    /// --- added by ShaMan123
+
+    public void _didTouchPath(String uid, int x, int y) {
+        WritableMap event = Arguments.createMap();
+        reactContext = (ReactContext)getContext();
+        event.putBoolean("didTouchPath", true);
+
+        for(SketchData path: mPaths) {
+            event.putBoolean(Integer.toString(path.id), path.isPointOnPath(x, y));
+        }
+
+        mContext.getJSModule(RCTEventEmitter.class).receiveEvent(
+                getId(),
+                "topChange",
+                event);
+
+    }
+
+    public void receivePathApproximation() {
+        WritableMap event = Arguments.createMap();
+        WritableMap pathApproximation = Arguments.createMap();
+        reactContext = (ReactContext)getContext();
+
+        for(SketchData path: mPaths) {
+            WritableArray coords = path.getCoords();
+            pathApproximation.putArray(Integer.toString(path.id), coords);
+        }
+
+        event.putMap("pathApproximation", pathApproximation);
+
+        mContext.getJSModule(RCTEventEmitter.class).receiveEvent(
+                getId(),
+                "topChange",
+                event);
+
+    }
+
+
+    public void didTouchPath(String eventId, int x, int y) {
+        reactContext = (ReactContext)getContext();
+        WritableMap event = Arguments.createMap();
+        WritableArray touchedPathIds = Arguments.createArray();
+
+        int color = mDrawingBitmap.getPixel(x, y);
+        boolean didTouch = color != 0;
+        event.putBoolean("didTouchPath", didTouch);
+        event.putString("eventId", eventId);
+
+        for(SketchData path: mPaths) {
+            WritableArray mCoords = path.getCoords();
+            /*
+            ArrayList coords = mCoords.toArrayList();
+            for(Object point: coords) {
+                //Log.d("RNSketchCanvas", "color" + (String)mDrawingBitmap.getPixel(point.x, point.y));
+            }
+*/
+            for(int i = 0; i < mCoords.size(); i++){
+                ReadableMap point = mCoords.getMap(i);
+                int mColor = mDrawingBitmap.getPixel(point.getInt("x"), point.getInt("y"));
+                boolean hit = mColor != 0;
+                if(hit){
+                    touchedPathIds.pushInt(path.id);
+                }
+
+                Log.d("RNSketchCanvas", "color  " + mColor + "  pathId  " + path.id);
+            }
+
+        }
+
+        mContext.getJSModule(RCTEventEmitter.class).receiveEvent(
+                getId(),
+                "topChange",
+                event);
     }
 }

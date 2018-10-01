@@ -10,6 +10,10 @@ import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.RectF;
 
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.WritableArray;
+import com.facebook.react.bridge.WritableMap;
+
 import java.util.ArrayList;
 
 public class SketchData {
@@ -216,5 +220,53 @@ public class SketchData {
         PointF mid2 = new PointF((point.x + pPoint.x) * 0.5f, (point.y + pPoint.y) * 0.5f);
         path.moveTo(mid1.x, mid1.y);
         path.quadTo(pPoint.x, pPoint.y, mid2.x, mid2.y);
+    }
+
+
+    /// --- added by ShaMan123
+
+    private float[][] mGetCoords() {
+        float acceptableError = 0.5f;
+        if (mPath == null && !this.isTranslucent) mPath = evaluatePath();
+        if(mPath != null) {
+            float[] apprx = mPath.approximate(acceptableError);
+            float[][] coords = new float[(int)(apprx.length/3)][3];
+            for (int i=0; i<apprx.length; i++) {
+                coords[(int)(i/3)][i%3] = apprx[i];
+            }
+            return coords;
+        }
+        return new float[0][0];
+    }
+
+    public WritableArray getCoords() {
+        WritableArray mCoords = Arguments.createArray();
+        float[][] coords = mGetCoords();
+        for (int i=0; i<coords.length; i++) {
+            float[] val = coords[i];
+            WritableMap tCoords = Arguments.createMap();
+            tCoords.putDouble("relativePosition", val[0]);
+            tCoords.putDouble("x", val[1]);
+            tCoords.putDouble("y", val[2]);
+            mCoords.pushMap(tCoords);
+        }
+        return mCoords;
+    }
+
+    public boolean isPointOnPath(int x, int y) {
+        if (mPath == null && !this.isTranslucent) {
+            mPath = evaluatePath();
+            Path path = new Path();
+            Path tPath = new Path();
+            //path.addCircle(x, y, 1, Path.Direction.CW);
+            path.addRect((float)(x-0.5),(float)(y-0.5),(float)(x+0.5),(float)(y+0.5),Path.Direction.CW);
+            tPath.op(mPath, path, Path.Op.INTERSECT);
+            tPath.isRect(new RectF());
+            tPath.isEmpty();
+            return false;
+            //return tPath.isRect(new RectF());
+            //return tPath.isEmpty();
+        }
+        return false;
     }
 }
